@@ -236,7 +236,7 @@ class ConfluentConsumerThread(ConsumerThread):
             for tp in committed
         }
 
-    async def commit(self, tps: Mapping[TP, int]) -> bool:
+    async def commit(self, tps: Mapping[TP, Optional[int]]) -> bool:
         self.call_thread(
             self._ensure_consumer().commit,
             offsets=[

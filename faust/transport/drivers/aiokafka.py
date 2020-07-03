@@ -163,6 +163,9 @@ Has not committed %r (last commit %s).
 '''.strip()
 
 
+OffsetMap = Mapping[TP, Optional[int]]
+
+
 def server_list(urls: List[URL], default_port: int) -> List[str]:
     """Convert list of urls to list of servers accepted by :pypi:`aiokafka`."""
     default_host = '127.0.0.1'
@@ -513,7 +516,7 @@ class AIOKafkaConsumerThread(ConsumerThread):
             listener=self._rebalance_listener,
         )
 
-    async def seek_to_committed(self) -> Mapping[TP, int]:
+    async def seek_to_committed(self) -> OffsetMap:
         """Seek partitions to the last committed offset.
 
         Returns:
@@ -555,7 +558,7 @@ class AIOKafkaConsumerThread(ConsumerThread):
         return self.app.conf.broker_commit_future
 
     def _to_committed_offsets(
-            self, offsets: Mapping[TP, int]) -> Mapping[TP, int]:
+            self, offsets: OffsetMap) -> OffsetMap:
         to_committed_offset = self._to_committed_offset
         return {
             ensure_TP(tp): to_committed_offset(offset)
@@ -584,7 +587,7 @@ class AIOKafkaConsumerThread(ConsumerThread):
                 return offset
         return None
 
-    def _to_next_offset(self, offset: Optional[int]) -> Optional[int]:
+    def _to_next_offset(self, offset: Optional[int]) -> int:
         """Convert committed offset to the next offset to process.
 
         See :meth:`_to_committed_offset`.
@@ -595,11 +598,11 @@ class AIOKafkaConsumerThread(ConsumerThread):
         else:
             return offset + self._seek_skew
 
-    async def commit(self, offsets: Mapping[TP, int]) -> bool:
+    async def commit(self, offsets: OffsetMap) -> bool:
         """Commit topic offsets."""
         return await self.call_thread(self._commit, offsets)
 
-    async def _commit(self, offsets: Mapping[TP, int]) -> bool:
+    async def _commit(self, offsets: OffsetMap) -> bool:
         consumer = self._ensure_consumer()
         now = monotonic()
         skew = 1 if self.app.conf.broker_commit_future else 0
@@ -836,7 +839,7 @@ class AIOKafkaConsumerThread(ConsumerThread):
         committed_offset = self._to_committed_offset(offset)
         next_offset = self._to_next_offset(offset)
         self._ensure_consumer().seek(partition, next_offset)
-        self.offsets.on_seek_partition(partition, committed_offset)
+        self.consumer.offsets.on_seek_partition(partition, committed_offset)
 
     def assignment(self) -> Set[TP]:
         """Return the current assignment."""
@@ -1032,7 +1035,7 @@ class Producer(base.Producer):
 
     async def commit_transactions(
             self,
-            tid_to_offset_map: Mapping[str, Mapping[TP, int]],
+            tid_to_offset_map: Mapping[str, OffsetMap],
             group_id: str,
             start_new_transaction: bool = True) -> None:
         """Commit transactions."""
@@ -1046,8 +1049,9 @@ class Producer(base.Producer):
                 tid: {
                     tp: offset + commit_skew
                     for tp, offset in offset_map.items()
+                    if offset is not None
                 }
-                for tid, offset_map in tid_to_offset.items()
+                for tid, offset_map in tid_to_offset_map.items()
             }
         await self._ensure_producer().commit(
             tid_to_offset_map, group_id,

@@ -2123,6 +2123,7 @@ class Settings(base.SettingsRegistry):
 
             app = App(..., Serializers='myproj.serializers.Registry')
         """
+    Serializers = cast(Type[RegistryT], Serializers)
 
     @sections.Extension.setting(
         params.Symbol(Type[_WorkerT]),

@@ -412,6 +412,14 @@ class ConsumerT(ServiceT):
     def verify_recovery_event_path(self, now: float, tp: TP) -> None:
         ...
 
+    @abc.abstractmethod
+    def on_buffer_full(self, tp: TP) -> None:
+        ...
+
+    @abc.abstractmethod
+    def on_buffer_drop(self, tp: TP) -> None:
+        ...
+
     @property
     @abc.abstractmethod
     def unacked(self) -> Set[Message]:

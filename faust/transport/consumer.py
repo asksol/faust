@@ -109,6 +109,7 @@ CONSUMER_WAIT_EMPTY = 'WAIT_EMPTY'
 logger = get_logger(__name__)
 
 RecordMap = Mapping[TP, List[Any]]
+OffsetMap = Mapping[TP, Optional[int]]
 
 
 class TopicPartitionGroup(NamedTuple):
@@ -285,7 +286,7 @@ class TransactionManager(Service, TransactionManagerT):
         fut = await self.send(topic, key, value, partition, timestamp, headers)
         return await fut
 
-    async def commit(self, offsets: Mapping[TP, int],
+    async def commit(self, offsets: OffsetMap,
                      start_new_transaction: bool = True) -> bool:
         """Commit offsets for partitions."""
         producer = self.producer
@@ -463,7 +464,7 @@ class Consumer(Service, ConsumerT):
     @abc.abstractmethod
     async def _commit(
             self,
-            offsets: Mapping[TP, int]) -> bool:  # pragma: no cover
+            offsets: OffsetMap) -> bool:  # pragma: no cover
         ...
 
     async def perform_seek(self) -> None:
@@ -471,7 +472,7 @@ class Consumer(Service, ConsumerT):
         await self.seek_to_committed()
 
     @abc.abstractmethod
-    async def seek_to_committed(self) -> Mapping[TP, int]:
+    async def seek_to_committed(self) -> OffsetMap:
         """Seek all partitions to their committed offsets."""
         ...
 
@@ -851,7 +852,7 @@ class Consumer(Service, ConsumerT):
                     start_new_transaction=start_new_transaction)
         return False
 
-    async def _handle_attached(self, commit_offsets: Mapping[TP, int]) -> None:
+    async def _handle_attached(self, commit_offsets: OffsetMap) -> None:
         for tp, offset in commit_offsets.items():
             app = cast(_App, self.app)
             attachments = app._attachments
@@ -871,7 +872,7 @@ class Consumer(Service, ConsumerT):
             if pending:
                 await cast(Service, producer).wait_many(pending)
 
-    async def _commit_offsets(self, offsets: Mapping[TP, int],
+    async def _commit_offsets(self, offsets: OffsetMap,
                               start_new_transaction: bool = True) -> bool:
         table = terminal.logtable(
             [(str(tp), str(offset))
@@ -1021,12 +1022,12 @@ class ConsumerThread(QueueServiceThread):
         ...
 
     @abc.abstractmethod
-    async def seek_to_committed(self) -> Mapping[TP, int]:
+    async def seek_to_committed(self) -> OffsetMap:
         """Seek all partitions to their committed offsets."""
         ...
 
     @abc.abstractmethod
-    async def commit(self, tps: Mapping[TP, int]) -> bool:
+    async def commit(self, tps: OffsetMap) -> bool:
         """Commit offsets in topic partitions."""
         ...
 

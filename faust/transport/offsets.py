@@ -508,14 +508,16 @@ class OffsetManager(FastUserDict[TP, Offsets]):
         finally:
             self._waiting_for_ack = None
 
-    def on_seek_partitions(self, committed_offsets: Mapping[TP, int]) -> None:
+    def on_seek_partitions(
+            self,
+            committed_offsets: Mapping[TP, Optional[int]]) -> None:
         # offset + 1 is the next message to be processed.
         self.read_offset.update(committed_offsets)
         self._pending_offset.update(committed_offsets)
         self._committed_offset.update(committed_offsets)
         self.update_from_offsets(committed_offsets)
 
-    def on_seek_partition(self, tp: TP, offset: int) -> None:
+    def on_seek_partition(self, tp: TP, offset: Optional[int]) -> None:
         # offset + 1 is the next message to be processed.
 
         # set new read offset will allow processing of any offset
